@@ -5,7 +5,7 @@ CC = mipsel-linux-gnu-gcc
 CFLAGS = -march=mips32 -EL -ffreestanding -nostdlib -nodefaultlibs -fomit-frame-pointer -fno-stack-protector -Os -mno-abicalls -fno-reorder-blocks
 
 # Output Executable
-OUTPUT = manwb
+OUTPUT = manwb.bin
 
 # Find all C source files
 SRCS = $(wildcard *.c)
