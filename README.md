@@ -1,1 +1,1 @@
-Some very crude C code use to enhance the Kodak Reels firmware.  The code is so primative, as I've not called any C lib functions, and avoiding to much use of the stack.  The compiled output is directly (manually) spliced in the stubbed areas on the scanner's firmware.  
+Some very crude C code used to enhance the Kodak Reels firmware.  The code is so primative, as I've not called any C lib functions, and avoiding to much use of the stack.  The compiled output is directly (manually) spliced in the stubbed areas on the scanner's firmware.  
