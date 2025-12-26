@@ -47,12 +47,13 @@ enum LEVELS {
 #define NVM_SHARPEN     1
 #define NVM_SAT         2
 #define NVM_FREE        3
-#define NVM_NAV         4
+#define NVM_DONOT_USE   4
 #define NVM_WB_MODS     5
 #define NVM_EVBIAS      6
 #define NVM_FPS         7
 #define NVM_QPMIN       8
 #define NVM_EXPLOCK     9
+#define NVM_NAV         10
 
 #define NVM_ISO_LOCK    14
 #define NVM_SHUT_LOCK   15
@@ -106,7 +107,7 @@ void select_wb(void)
             nvm_base[NVM_EXPLOCK] = 0; //reset to Auto exposure.
             nvm_base[NVM_ISO_LOCK] = 100;
             nvm_base[NVM_SHUT_LOCK] = 2048;
-            nvm_base[NVM_NAV] = 3; //EV
+            nvm_base[NVM_NAV] = 3; //EV  <- This is causing the first boot after flashing, not to run (when NVM_NAV was 4)
             nvm_base[NVM_WB_MODS]=0;    
             
             if(nvm_base[NVM_SAVE_WBAL] > 0 || nvm_base[NVM_SAVE_SHARPEN] > 0 || nvm_base[NVM_SAVE_SAT] > 0)
@@ -233,7 +234,7 @@ void select_wb(void)
             
         if(nvm_base[NVM_SAVE_SAT] != nvm_base[NVM_SAT])
             nvm_base[NVM_SAVE_SAT] = nvm_base[NVM_SAT]; 
-	} 
+	}
 	return;
 }
 

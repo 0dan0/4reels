@@ -60,9 +60,9 @@ if defined latestFile (
     mkdir I:\NVTDELFW
     copy /Y "!bclFile!" "I:\FWDV280.BIN"
     
-    set "rbnFile=%bclFile:~0,-4%.rbn"
-    python markdate.py !rbnFile!
-    timeout /t 2 >nul
+    rem   set "rbnFile=%bclFile:~0,-4%.rbn"
+    rem   python markdate.py !rbnFile!
+    rem   timeout /t 2 >nul
 ) else (
     echo No .bcl files found in the current directory.
 )

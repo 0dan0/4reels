@@ -35,12 +35,13 @@
 #define NVM_SHARPEN     1
 #define NVM_SAT         2
 #define NVM_FREE        3
-#define NVM_NAV         4
-#define NVM_GREEN       5
+#define NVM_DONOT_USE   4
+#define NVM_WB_MODS     5
 #define NVM_EVBIAS      6
 #define NVM_FPS         7
 #define NVM_QPMIN       8
 #define NVM_EXPLOCK     9
+#define NVM_NAV         10
 
 #define NVM_ISO_LOCK    14
 #define NVM_SHUT_LOCK   15
