@@ -2,7 +2,9 @@
 CC = mipsel-linux-gnu-gcc
 
 # Compiler Flags
-CFLAGS = -march=mips32 -EL -ffreestanding -nostdlib -nodefaultlibs -fomit-frame-pointer -fno-stack-protector -Os -mabicalls -fpic -fno-reorder-blocks
+CFLAGS = -march=mips32 -EL -ffreestanding -nostdlib -nodefaultlibs \
+-fomit-frame-pointer -fno-stack-protector -Os \
+-mno-abicalls -fno-pic -fno-reorder-blocks
 
 # Output Executable
 OUTPUT = hist.bin
