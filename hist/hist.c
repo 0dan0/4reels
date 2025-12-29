@@ -62,6 +62,65 @@
 #define EDGE_X1 190 // was 160, need more room for 8mm (v6.8).
 #define EDGE_X2 32
 
+// 8-bit palettle mapped colors
+enum Palette {
+  TRANSPARENT=0,
+  YELLOW,
+  PURPLE,
+  RED,
+  CYAN,
+  GREEN,
+  BLUE,
+  BLACK,
+  GREY20,
+  GREY40,
+  GREY60,
+  GREY80,
+  GRADIENT_41=214,
+  GRADIENT_40,
+  GRADIENT_39,
+  GRADIENT_38,
+  GRADIENT_37,
+  GRADIENT_36,
+  GRADIENT_35,
+  GRADIENT_34,
+  GRADIENT_33,
+  GRADIENT_32,
+  GRADIENT_31,
+  GRADIENT_30,
+  GRADIENT_29,
+  GRADIENT_28,
+  GRADIENT_27,
+  GRADIENT_26,
+  GRADIENT_25,
+  GRADIENT_24,
+  GRADIENT_23,
+  GRADIENT_22,
+  GRADIENT_21,
+  GRADIENT_20,
+  GRADIENT_19,
+  GRADIENT_18,
+  GRADIENT_17,
+  GRADIENT_16,
+  GRADIENT_15,
+  GRADIENT_14,
+  GRADIENT_13,
+  GRADIENT_12,
+  GRADIENT_11,
+  GRADIENT_10,
+  GRADIENT_9,
+  GRADIENT_8,
+  GRADIENT_7,
+  GRADIENT_6,
+  GRADIENT_5,
+  GRADIENT_4,
+  GRADIENT_3,
+  GRADIENT_2,
+  GRADIENT_1,
+  GRADIENT_0,
+  WHITE=255
+};
+
 #define DRAW        1
 
 #define FONT_BASE_ADDR   ((uintptr_t)0x8033A800u)
@@ -80,13 +139,14 @@ do{ int _X=(x),_Y=(y);                                                       \
 
 /* 7x11 font, MSB=leftmost (use bits 6..0). Undefined chars render blank. */
 /* Draw one glyph at (x,y); v = intensity 0..255. MSB=leftmost */
-#define DRAW_GLYPH(buf,stride,w,h,x,y,ch,v)                                    \
-do{ unsigned char _c=(unsigned char)(ch); int _r,_c0;                          \
-    for(_r=0;_r<FH;++_r){                                                       \
-        uint8_t _bits=FONT7x12_ROM[_c][_r];                                     \
-        for(_c0=0;_c0<FW;++_c0) if(_bits&(1u<<((FW-1)-_c0)))                         \
-            _P((buf),(stride),(w),(h),(x)+_c0,(y)+_r,(v));                     \
-    }                                                                          \
+#define DRAW_GLYPH(buf,stride,w,h,x,y,ch,v)                                        \
+do{ unsigned char _c=(unsigned char)(ch); int _r,_c0;                              \
+    for(_r=0;_r<FH;++_r){                                                          \
+        uint8_t _bits=FONT7x12_ROM[_c][_r];                                        \
+        for(_c0=0;_c0<FW;++_c0) {                                                  \
+          _P((buf),(stride),(w),(h),(x)+_c0,(y)+_r,(_bits&(1u<<((FW-1)-_c0))?v:0));\
+        }                                                                          \
+    }                                                                              \
 }while(0)
 
 /* Draw ASCII string (single line). Advance = (FW). */
@@ -95,6 +155,35 @@ do{ const char*_p=(const char*)(str); int _cx=(x);                              
     for(;*_p;++_p){ DRAW_GLYPH((buf),(stride),(w),(h),_cx,(y),*_p,(v)); _cx+=FW-1; }\
 }while(0)
 
+
+
+
+
+
+#define _I_V(h,stride,x,y)          (((h)-x)*(stride)+(y))
+#define _P_V(buf,stride,w,h,x,y,v)                                             \
+do{ int _X=(x),_Y=(y);                                                        \
+    if((unsigned)_X<(unsigned)(w)&&(unsigned)_Y<(unsigned)(h))                \
+        (buf)[_I_V((h),(stride),_X,_Y)]=(uint8_t)(v);                               \
+}while(0)
+
+/* 7x11 font, MSB=leftmost (use bits 6..0). Undefined chars render blank. */
+/* Draw one glyph at (x,y); v = intensity 0..255. MSB=leftmost */
+#define DRAW_GLYPH_V(buf,stride,w,h,x,y,ch,v)                                        \
+do{ unsigned char _c=(unsigned char)(ch); int _r,_c0;                              \
+    for(_r=0;_r<FH;++_r){                                                          \
+        uint8_t _bits=FONT7x12_ROM[_c][_r];                                        \
+        for(_c0=0;_c0<FW;++_c0) {                                                  \
+          _P_V((buf),(stride),(w),(h),(x)+_c0,(y)+_r,(_bits&(1u<<((FW-1)-_c0))?v:7));\
+        }                                                                          \
+    }                                                                              \
+}while(0)
+
+/* Draw ASCII string (single line). Advance = (FW). */
+#define DRAW_TEXT_V(buf,stride,w,h,x,y,str,v)                                      \
+do{ const char*_p=(const char*)(str); int _cx=(x);                               \
+    for(;*_p;++_p){ DRAW_GLYPH_V((buf),(stride),(w),(h),_cx,(y),*_p,(v)); _cx+=FW-1; }\
+}while(0)
 
 
 
@@ -159,7 +248,63 @@ void calc_histogram(void)
 
 	if(*frameno < 25 || *frameno & 0xfff00000) 
 		return;  // time to initialize
-	
+
+#if 0 // Draw color palette
+    enum { GRID = 16, CELL = 30 };
+    uint8_t *LCD = (uint8_t *)0x81821180; // All types
+    if(*frameno < 26)
+    {
+        //int x,y;
+        //for(x=0; x<480; x++)
+        //{
+        //    for(y=0; y<256*2; y++)
+        //    {
+        //        LCD[y*480 + x + 64] = (y/8) & 0xff;
+        //    }
+        //}
+        for (int gy = 0; gy < GRID; ++gy) {
+            int y0 = gy * CELL;
+        
+            for (int py = 0; py < CELL; ++py) {
+                uint8_t *row = LCD + (y0 + py) * 480;
+        
+                for (int gx = 0; gx < GRID; ++gx) {
+                    uint8_t c = gy*16+gx;
+                    int x0 = gx * CELL;
+        
+                    // Fill this 30-pixel run
+                    uint8_t *p = row + x0;
+                    for (int i = 0; i < CELL; ++i) {
+                        p[i] = c;
+                    }
+                }
+            }
+        }
+    }
+#endif
+
+
+#if 0 // Test vertical text rendering to the overlay    
+    if(*frameno < 10000)
+    {   
+        char newtxt[20];        
+        newtxt[0] = 'H';
+        newtxt[1] = 'e';
+        newtxt[2] = 'l';
+        newtxt[3] = 'l';
+        newtxt[4] = 'o';
+        newtxt[5] = ' ';
+        newtxt[6] = ( *frameno / 10000) + '0';
+        newtxt[7] = ((*frameno / 1000) % 10) + '0';
+        newtxt[8] = ((*frameno / 100) % 10) + '0';
+        newtxt[9] = ((*frameno / 10) % 10) + '0';
+        newtxt[10] = (*frameno % 10) + '0';
+        newtxt[11] = 0;
+        
+        DRAW_TEXT_V(LCD, 480, 480, 864, 8, 8, newtxt, 1);
+    }
+#endif
+
     if(*enc_frames > 0 && *enc_frames < 99999)
     {
         imagebase = (uint8_t *)0xa37AB770; //start of LRV //0xAxxxxxxx - uncached
