@@ -52,9 +52,10 @@ enum LEVELS {
 #define NVM_EVBIAS      6
 #define NVM_FPS         7
 #define NVM_QPMIN       8
-#define NVM_EXPLOCK     9
-#define NVM_NAV         10
+#define NVM_ISOMAX      9
+#define NVM_EXPLOCK     10
 
+#define NVM_NAV         13
 #define NVM_ISO_LOCK    14
 #define NVM_SHUT_LOCK   15
 
@@ -153,8 +154,8 @@ void select_wb(void)
                     
                 // 0 wb_mods_r, 1 blue, 2 green, 3 ev, 4 fps, 5 Qp, 6 ExpLock 
                 if(nvm_base[NVM_NAV] < 0) 
-                    nvm_base[NVM_NAV] = 6;
-                if(nvm_base[NVM_NAV] > 6) 
+                    nvm_base[NVM_NAV] = 7;
+                if(nvm_base[NVM_NAV] > 7) 
                     nvm_base[NVM_NAV] = 0;
                  
                 int addr = nvm_base[NVM_NAV] - 2;
@@ -216,6 +217,8 @@ void select_wb(void)
         if(nvm_base[NVM_FPS] < 0 || nvm_base[NVM_FPS] > 2) nvm_base[NVM_FPS]=1;  //Frame Rate, 16, 18 & 24
         if(nvm_base[NVM_QPMIN] < 16) nvm_base[NVM_QPMIN]=16;  //Qp min
         if(nvm_base[NVM_QPMIN] > 30) nvm_base[NVM_QPMIN]=30;  //Qp min
+        if(nvm_base[NVM_ISOMAX] > 2) nvm_base[NVM_ISOMAX]=2;  //400 ISO max
+        if(nvm_base[NVM_ISOMAX] < 0) nvm_base[NVM_ISOMAX]=0;  //100 ISO max
 
         // wb tint control 
         r += sr * 0x10 + (sr ? 1 : 0);

@@ -40,8 +40,10 @@
 #define NVM_EVBIAS      6
 #define NVM_FPS         7
 #define NVM_QPMIN       8
-#define NVM_EXPLOCK     9
-#define NVM_NAV         10
+#define NVM_ISOMAX      9
+#define NVM_EXPLOCK     10
+
+#define NVM_NAV         13
 
 #define NVM_ISO_LOCK    14
 #define NVM_SHUT_LOCK   15
@@ -52,7 +54,11 @@
 
 #define WIDTH 656
 #define PITCH 656
+#if DRAW_RGB
 #define TEXT_WIDTH (36*4)
+#else
+#define TEXT_WIDTH (0)
+#endif
 #define HIST_WIDTH (128+8)
 #define HIST_PITCH (HIST_WIDTH+TEXT_WIDTH)
 #define HIST_HEIGHT (64+8)
@@ -61,6 +67,11 @@
 #define EDGE 48
 #define EDGE_X1 190 // was 160, need more room for 8mm (v6.8).
 #define EDGE_X2 32
+
+
+#define LCD_X 480
+#define LCD_Y 864
+#define LCD_P 480
 
 // 8-bit palettle mapped colors
 enum Palette {
@@ -71,11 +82,30 @@ enum Palette {
   CYAN,
   GREEN,
   BLUE,
-  BLACK,
-  GREY20,
-  GREY40,
-  GREY60,
+  BLACK,  //7 
+  GREY25,
+  GREY50,
   GREY80,
+  GREY90,
+  GREY35,
+  GREY190,
+  GREY200,
+  GREY205, //15
+  GREY170,
+  GREY215,
+  GREY130,
+  GREY70,
+  GREY55,
+  GREY185,
+  GREY195,
+  GREY26,
+  GREY15,
+  GREY60,
+  GREY85,
+  GREY95,
+  GREY180,
+  GREY30,
+  GREY10,
   GRADIENT_41=214,
   GRADIENT_40,
   GRADIENT_39,
@@ -163,8 +193,7 @@ do{ const char*_p=(const char*)(str); int _cx=(x);                              
 #define _I_V(h,stride,x,y)          (((h)-x)*(stride)+(y))
 #define _P_V(buf,stride,w,h,x,y,v)                                             \
 do{ int _X=(x),_Y=(y);                                                        \
-    if((unsigned)_X<(unsigned)(w)&&(unsigned)_Y<(unsigned)(h))                \
-        (buf)[_I_V((h),(stride),_X,_Y)]=(uint8_t)(v);                               \
+   (buf)[_I_V((h),(stride),_X,_Y)]=(uint8_t)(v);                               \
 }while(0)
 
 /* 7x11 font, MSB=leftmost (use bits 6..0). Undefined chars render blank. */
@@ -181,10 +210,16 @@ do{ unsigned char _c=(unsigned char)(ch); int _r,_c0;                           
 
 /* Draw ASCII string (single line). Advance = (FW). */
 #define DRAW_TEXT_V(buf,stride,w,h,x,y,str,v)                                      \
-do{ const char*_p=(const char*)(str); int _cx=(x);                               \
-    for(;*_p;++_p){ DRAW_GLYPH_V((buf),(stride),(w),(h),_cx,(y),*_p,(v)); _cx+=FW-1; }\
-}while(0)
+if(buf[0] == 7) { const char*_p=(const char*)(str); int _cx=(x), _cy=(y), _cv=(v); \
+    for(;*_p;++_p){ DRAW_GLYPH_V((buf),(stride),(w),(h),_cx,_cy,*_p,_cv); \
+    _cx+=FW-1; if(_p[1] == 10) { ++_p; _cy+=FH+1; _cx=(x); } \
+    else if(_p[1]>0x0 && _p[1]<0x20) _cv = _p[1]; \
+    }\
+}
 
+#define DRAW_TEXT_V_ALWAYS(buf,stride,w,h,x,y,str,v)                                      \
+{ const char*_p=(const char*)(str); int _cx=(x), _cy=(y);                               \
+  for(;*_p;++_p){ DRAW_GLYPH_V((buf),(stride),(w),(h),_cx,(y),*_p,(v)); _cx+=FW-1; } }
 
 
 // Integer square root for 32-bit unsigned values
@@ -221,10 +256,11 @@ void calc_histogram(void)
 	uint8_t  *histo_rgb_image = 0;// = (uint8_t *) (0x85bf0000 - (HIST_PITCH * HIST_HEIGHT * 3)); // was 85bf0500  (seems to effect the encoder buffer.)
 	uint32_t *expo_change = (uint32_t *)0x85bf0010;
 	uint32_t *enc_frames = (uint32_t *) 0x85bf0014;
-	uint32_t *count_frames = (uint32_t *)0x85bf0018;
+	//uint32_t *count_frames = (uint32_t *)0x85bf0018;
 	uint32_t *current_Qp = (uint32_t *) 0xa56f1f60;
     uint32_t *wb_gains = (uint32_t *)0x85bf0020;
     uint32_t *window_res = (uint32_t *)0x85bf0030;
+    uint8_t *LCD = (uint8_t *)0x81821180; // All types
     
 	uint8_t *imagebase = (uint8_t *)0xa2730b70; //start of LRV  //PREVIEW
   /*uint8_t *image = (uint8_t *)0x827c8970; //start of LRV
@@ -251,7 +287,6 @@ void calc_histogram(void)
 
 #if 0 // Draw color palette
     enum { GRID = 16, CELL = 30 };
-    uint8_t *LCD = (uint8_t *)0x81821180; // All types
     if(*frameno < 26)
     {
         //int x,y;
@@ -479,300 +514,266 @@ void calc_histogram(void)
 	           planes[(HIST_HEIGHT - 4) * HIST_PITCH + x] = 1;      // Bottom border
 	        }
            
+           #if DRAW_RGB
             for (int y = 0; y < HIST_HEIGHT; y++) {
                 int off = (y * HIST_PITCH + HIST_WIDTH)>>2;
                 for(int x=0; x<(TEXT_WIDTH/4); x++) {
 	                planes32[off+x] = 0x01010101;
                 }
             }
+           #endif
             
             planes += HIST_PITCH * HIST_HEIGHT;
             planes32 += (HIST_PITCH * HIST_HEIGHT)>>2;
         }
     }
-   
-   
-    char text[20];
-   
-    text[0] = 'W';
-    text[1] = 'B';
-    text[2] = ':';
-    text[3] = ' ';
-    text[4] = (wb_gains[0] / 100) + '0';
-    text[5] = ((wb_gains[0] / 10) % 10) + '0';
-    text[6] = (wb_gains[0] % 10) + '0';
-    text[7] = ',';
-    text[8] = (wb_gains[1] / 100) + '0';
-    text[9] = ((wb_gains[1] / 10) % 10) + '0';
-    text[10] = (wb_gains[1] % 10) + '0';
-    text[11] = ',';
-    text[12] = (wb_gains[2] / 100) + '0';
-    text[13] = ((wb_gains[2] / 10) % 10) + '0';
-    text[14] = (wb_gains[2] % 10) + '0';
-    text[15] = 0;
-    text[16] = 0;
+
+    char *text;
+    
+    int power = 2*nvm_base[NVM_ISOMAX]; //0,2,4
+    if(power == 0) power = 1;        
+    if(power > 4) power = 4;        
     if(*enc_frames > 0)
     {
-        if(nvm_base[NVM_NAV]==0)
-        {
-            text[3] = '[';
-            text[7] = ']';
-        }
-        if(nvm_base[NVM_NAV]==1)
-        {
-            text[7] = '[';
-            text[11] = ']';
-        }
-        if(nvm_base[NVM_NAV]==2)
-        {
-            text[11] = '[';
-            text[15] = ']';
-        }
-    }
-    uint8_t *planeR = histo_rgb_image;
-    uint8_t *planeG = histo_rgb_image + HIST_PITCH * HIST_HEIGHT;
-    uint8_t *planeB = histo_rgb_image + HIST_PITCH * HIST_HEIGHT * 2;
+//Frm:           
+//WB gains:      
+// 432,256,256  
+//ev : +0       
+//FPS: 18        
+//Qp : 25 / 27  
+//ISO: 400        
+//Exp:xxxxus   
+        char *formattedTextEnc = (char *)0x8033b500;
+        text = formattedTextEnc;
     
-    int ypos = 4;
-    DRAW_TEXT(planeR, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-    DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-    ypos += FH+1;
-
-    if(*enc_frames > 0 && *enc_frames < 100000)
-    {
-        text[0] = 'F';
-        text[1] = 'r';
-        text[2] = 'a';
-        text[3] = 'm';
-        text[4] = 'e';
-        text[5] = ':';
-        text[6] = ( *enc_frames / 10000) + '0';
-        text[7] = ((*enc_frames / 1000) % 10) + '0';
-        text[8] = ((*enc_frames / 100) % 10) + '0';
-        text[9] = ((*enc_frames / 10) % 10) + '0';
-        text[10] = (*enc_frames % 10) + '0';
-        if(text[6] == '0')
+        // Frame number
+        text[4] = ( *enc_frames / 10000) + '0';
+        text[5] = ((*enc_frames / 1000) % 10) + '0';
+        text[6] = ((*enc_frames / 100) % 10) + '0';
+        text[7] = ((*enc_frames / 10) % 10) + '0';
+        text[8] = (*enc_frames % 10) + '0';
+        if(text[4] == '0')
         {
-            text[6] = ' ';
-            if(text[7] == '0')
+            text[4] = ' ';
+            if(text[5] == '0')
             {
-                text[7] = ' ';
-                if(text[8] == '0')
+                text[5] = ' ';
+                if(text[6] == '0')
                 {
-                    text[8] = ' ';
-                    if(text[9] == '0')
+                    text[6] = ' ';
+                    if(text[7] == '0')
                     {
-                        text[9] = ' ';
+                        text[7] = ' ';
                     }
                 }
             }
         }
-        text[11] = ' ';
-        text[12] = 'e';
-        text[13] = 'v';
-        text[14] = ':';
-        text[15] = ' ';
+        //WB values
+        text[2*16+0] = ' ';
+        text[2*16+1] = (wb_gains[0] / 100) + '0';
+        text[2*16+2] = ((wb_gains[0] / 10) % 10) + '0';
+        text[2*16+3] = (wb_gains[0] % 10) + '0';
+        text[2*16+4] = ',';             
+        text[2*16+5] = (wb_gains[1] / 100) + '0';
+        text[2*16+6] = ((wb_gains[1] / 10) % 10) + '0';
+        text[2*16+7] = (wb_gains[1] % 10) + '0';
+        text[2*16+8] = ',';             
+        text[2*16+9] = (wb_gains[2] / 100) + '0';
+        text[2*16+10] = ((wb_gains[2] / 10) % 10) + '0';
+        text[2*16+11] = (wb_gains[2] % 10) + '0';
+        text[2*16+12] = ' ';        
+    
+        //EV Bias
+        text[3*16+4] = ' '; 
         if(nvm_base[NVM_EVBIAS] < 0) 
         {   
-            text[16] = '-'; 
-            text[17] = -nvm_base[NVM_EVBIAS] + '0';
+            text[3*16+5] = '-'; 
+            text[3*16+6] = -nvm_base[NVM_EVBIAS] + '0';
         }
         else 
         {
-            text[16] = '+';
-            text[17] = nvm_base[NVM_EVBIAS] + '0';
+            text[3*16+5] = '+';
+            text[3*16+6] = nvm_base[NVM_EVBIAS] + '0';
         }
-        text[18] = 0;
-        text[19] = 0;
-        if(*enc_frames > 0 && nvm_base[NVM_NAV]==3)
-        {
-            text[15] = '[';
-            text[18] = ']';
-        }
-        DRAW_TEXT(planeR, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 128);
-        DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-        ypos += FH+1;
-    
-    
-        text[0] = 'F';
-        text[1] = 'P';
-        text[2] = 'S';
-        text[3] = ':';
-        text[4] = ' ';
+        text[3*16+7] = ' '; 
+                
+        //FPS        
+        text[4*16+4] = ' ';
         if(nvm_base[NVM_FPS] == 0)
         {
-            text[5] = '1';
-            text[6] = '6';
+            text[4*16+5] = '1';
+            text[4*16+6] = '6';
         }    
         if(nvm_base[NVM_FPS] == 1)
         {
-            text[5] = '1';
-            text[6] = '8';
+            text[4*16+5] = '1';
+            text[4*16+6] = '8';
         }
         if(nvm_base[NVM_FPS] == 2)
         {
-            text[5] = '2';
-            text[6] = '4';
+            text[4*16+5] = '2';
+            text[4*16+6] = '4';
         }
-        text[7] = 0;
-        text[8] = 0;
-        if(*enc_frames > 0 && nvm_base[NVM_NAV]==4)
-        {
-            text[4] = '[';
-            text[7] = ']';
-        }
-        DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-        DRAW_TEXT(planeB, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 200);
-        ypos += FH+1;
-    
-        if(current_Qp[0] > 50) current_Qp[0]=50;
-        if(current_Qp[0] < 16) current_Qp[0]=16;
-    
-        text[0] = 'Q';
-        text[1] = 'p';
-        text[2] = ':';
-        text[3] = ' ';
-        text[4] = ((current_Qp[0] / 10) % 10) + '0';
-        text[5] = (current_Qp[0] % 10) + '0';
-        text[6] = ' ';
-        text[7] = '/';
-        text[8] = ' ';
-        text[9]  = (((nvm_base[NVM_QPMIN]-1) / 10) % 10) + '0';
-        text[10] = ((nvm_base[NVM_QPMIN]-1) % 10) + '0';
-        text[11] = 0;
-        text[12] = 0;
-        if(*enc_frames > 0 && nvm_base[NVM_NAV]==5)
-        {
-            text[8] = '[';
-            text[11]= ']';
-        }
+        text[4*16+7] = ' ';
         
+        //QP : 25/27  
+        if(current_Qp[0] > 30) current_Qp[0]=30;
+        if(current_Qp[0] < 16) current_Qp[0]=16;
+        text[5*16+5] = ((current_Qp[0] / 10) % 10) + '0';
+        text[5*16+6] = (current_Qp[0] % 10) + '0';
+        text[5*16+7] = '/';
+        text[5*16+8] = (((nvm_base[NVM_QPMIN]-1) / 10) % 10) + '0';
+        text[5*16+9] = ((nvm_base[NVM_QPMIN]-1) % 10) + '0';
+        text[5*16+10] = ' ';
+       
         if(nvm_base[NVM_QPMIN]-1 > current_Qp[0])
             current_Qp[0] = nvm_base[NVM_QPMIN]-1;
-          
-        DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 200);
-        DRAW_TEXT(planeB, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-        ypos += FH+1;
-    } 
-    else
-    {
-        int pos=4;
-        text[0] = 'R';
-        text[1] = 'e';
-        text[2] = 's';
-        text[3] = ':';        
-        text[pos++] = ((window_res[0] / 1000) % 10) + '0';
-        if(text[pos-1] == '0') pos--;  
-        text[pos++] = ((window_res[0] / 100) % 10) + '0';
-        text[pos++] = ((window_res[0] / 10) % 10) + '0';
-        text[pos++] =  (window_res[0] % 10) + '0';
-        text[pos++] = 'x';
-        text[pos++]  = ((window_res[1] / 1000) % 10) + '0';
-        if(text[pos-1] == '0') pos--;  
-        text[pos++] = ((window_res[1] / 100) % 10) + '0';
-        text[pos++] = ((window_res[1] / 10) % 10) + '0';
-        text[pos++] =  (window_res[1] % 10) + '0';
-        text[pos++] = 0;
-        
-        DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 200);
-        DRAW_TEXT(planeB, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-        ypos += FH+1;
-        
-        
-        pos=5;
-        text[0] = ' ';
-        text[1] = 'O';
-        text[2] = 'f';
-        text[3] = 'f';
-        text[4] = ':';        
-        text[pos++] = ((window_res[2] / 1000) % 10) + '0';
-        if(text[pos-1] == '0') pos--;  
-        text[pos++] = ((window_res[2] / 100) % 10) + '0';
-        text[pos++] = ((window_res[2] / 10) % 10) + '0';
-        text[pos++] =  (window_res[2] % 10) + '0';
-        text[pos++] = ',';
-        text[pos++]  = ((window_res[3] / 1000) % 10) + '0';
-        if(text[pos-1] == '0') pos--;  
-        text[pos++] = ((window_res[3] / 100) % 10) + '0';
-        text[pos++] = ((window_res[3] / 10) % 10) + '0';
-        text[pos++] =  (window_res[3] % 10) + '0';
-        text[pos++] = 0;
-        
-        DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 120);
-        DRAW_TEXT(planeB, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-        ypos += FH+1;
-    }
     
-    text[0] = 'I';
-    text[1] = 'S';
-    text[2] = 'O';
-    text[3] = ':';
-    if(expo_iso[0] == 50)
-    {
-        text[4] = ' ';
-        text[5] = '5';
-    }
-    else
-    {
-        text[4] = (expo_iso[0] / 100) + '0';
-        text[5] = '0';
-    }
-    text[6] = '0';
-    text[7] = ' ';
-    text[8] = 'E';
-    text[9] =':';
-    text[10] = (expo_time[0] / 1000) + '0';
-    text[11] = ((expo_time[0] / 100) % 10) + '0';
-    text[12] = ((expo_time[0] / 10) % 10) + '0';
-    text[13] = (expo_time[0] % 10) + '0';
-    text[14] = 'u';
-    text[15] = 's'; 
-    text[16] = ' ';
-    text[17] = ((nvm_base[NVM_EXPLOCK] & 1) ? 'L' : 'A');
-    text[18] = ' ';
-    text[19] = 0;
-    if(*enc_frames > 0 && nvm_base[NVM_NAV]==6)
-    {
-        text[16] = '[';
-        text[18] = ']';
-    }
-    
-    DRAW_TEXT(planeR, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-    DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 200);
-    ypos += FH+1;
-    
-/* looking for memory pattern
-    uint32_t* active_settings = (uint32_t *)0x80DD0000;
-    for(int i=0; i<0x8000; i++)
-    {
-        if(active_settings[i] == 4 && active_settings[i+1] == 4 && active_settings[i+2] == 4)
+        //ISO: 400/400   
+        if(expo_iso[0] == 50)
         {
-            uint32_t addr = (uint32_t)&active_settings[i];
-            addr = addr & 0xffff;
-            text[0] = ((addr / 100000) % 10) + '0';
-            text[1] = ((addr / 10000) % 10) + '0';
-            text[2] = ((addr / 1000) % 10) + '0';
-            text[3] = ((addr / 100) % 10) + '0';
-            text[4] = ((addr / 10) % 10) + '0';
-            text[5] = (addr % 10) + '0';
-            text[6] = 0;
-
-            DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, ypos, text, 255);
-
-            break;
+            text[6*16+5] = ' ';
+            text[6*16+6] = '5';
+        }
+        else
+        {
+            text[6*16+5] = (expo_iso[0] / 100) + '0';
+            text[6*16+6] = '0';
+        }
+        text[6*16+8] = '/';
+        text[6*16+9] = power + '0';
+        text[6*16+12] = ' ';
+    
+        //Exp:xxxxus [L]
+        text[7*16+4] = (expo_time[0] / 1000) + '0';
+        text[7*16+5] = ((expo_time[0] / 100) % 10) + '0';
+        text[7*16+6] = ((expo_time[0] / 10) % 10) + '0';
+        text[7*16+7] = (expo_time[0] % 10) + '0';
+        text[7*16+10] = ' ';
+        text[7*16+11] = ((nvm_base[NVM_EXPLOCK] & 1) ? 'L' : 'A');    
+        text[7*16+12] = ' ';
+    
+        if(nvm_base[NVM_NAV]==0)  //WB R
+        {
+            text[2*16+0] = '[';
+            text[2*16+4] = ']';
+        }
+        if(nvm_base[NVM_NAV]==1) //WB G
+        {
+            text[2*16+4] = '[';
+            text[2*16+8] = ']';
+        }
+        if(nvm_base[NVM_NAV]==2) //WB B
+        {
+            text[2*16+8] = '[';
+            text[2*16+12] = ']';
+        }           
+        if(nvm_base[NVM_NAV]==3) //EV Bias
+        {
+            text[3*16+4] = '[';
+            text[3*16+7] = ']';
+        }
+        if(nvm_base[NVM_NAV]==4) // FPS
+        {
+            text[4*16+4] = '[';
+            text[4*16+7] = ']';
+        }
+        if(nvm_base[NVM_NAV]==5) //QP
+        {
+            text[5*16+7] = '[';
+            text[5*16+10] = ']';
+        }
+        if(nvm_base[NVM_NAV]==6) // ISO MAX
+        {
+            text[6*16+8] = '[';
+            text[6*16+12] = ']';
+        }
+        if(nvm_base[NVM_NAV]==7) // Lock/Auto
+        {
+            text[7*16+10] = '[';
+            text[7*16+12] = ']';
         }
     }
-*/
+    else
+    {    
+//                   
+//WB gains:      
+// 432,256,256  
+//Res:1440x1080  
+//off:512,296    
+//               
+//ISO: 400/400        
+//Exp:xxxxus     
+        char *formattedTextPrev = (char *)0x8033b600;
+        text = formattedTextPrev;
+        int pos = 4;
+        
+        //WB values
+        text[2*16+0] = ' ';
+        text[2*16+1] = (wb_gains[0] / 100) + '0';
+        text[2*16+2] = ((wb_gains[0] / 10) % 10) + '0';
+        text[2*16+3] = (wb_gains[0] % 10) + '0';
+        text[2*16+4] = ',';             
+        text[2*16+5] = (wb_gains[1] / 100) + '0';
+        text[2*16+6] = ((wb_gains[1] / 10) % 10) + '0';
+        text[2*16+7] = (wb_gains[1] % 10) + '0';
+        text[2*16+8] = ',';             
+        text[2*16+9] = (wb_gains[2] / 100) + '0';
+        text[2*16+10] = ((wb_gains[2] / 10) % 10) + '0';
+        text[2*16+11] = (wb_gains[2] % 10) + '0';
+        text[2*16+12] = ' ';
+        
+        //Res:1440x1080 
+        text[3*16+pos++] = ((window_res[0] / 1000) % 10) + '0';
+        if(text[3*16+pos-1] == '0') pos--;  
+        text[3*16+pos++] = ((window_res[0] / 100) % 10) + '0';
+        text[3*16+pos++] = ((window_res[0] / 10) % 10) + '0';
+        text[3*16+pos++] =  (window_res[0] % 10) + '0';
+        text[3*16+pos++] = 'x';
+        text[3*16+pos++]  = ((window_res[1] / 1000) % 10) + '0';
+        if(text[3*16+pos-1] == '0') pos--;  
+        text[3*16+pos++] = ((window_res[1] / 100) % 10) + '0';
+        text[3*16+pos++] = ((window_res[1] / 10) % 10) + '0';
+        text[3*16+pos++] =  (window_res[1] % 10) + '0';
+        text[3*16+pos++] = ' ';
+        
+        //off:512,296  
+        pos = 4;
+        text[4*16+pos++] = ((window_res[2] / 1000) % 10) + '0';
+        if(text[4*16+pos-1] == '0') pos--;  
+        text[4*16+pos++] = ((window_res[2] / 100) % 10) + '0';
+        text[4*16+pos++] = ((window_res[2] / 10) % 10) + '0';
+        text[4*16+pos++] =  (window_res[2] % 10) + '0';
+        text[4*16+pos++] = ',';
+        text[4*16+pos++]  = ((window_res[3] / 1000) % 10) + '0';
+        if(text[4*16+pos-1] == '0') pos--;  
+        text[4*16+pos++] = ((window_res[3] / 100) % 10) + '0';
+        text[4*16+pos++] = ((window_res[3] / 10) % 10) + '0';
+        text[4*16+pos++] =  (window_res[3] % 10) + '0';
+        text[4*16+pos++] = ' ';        
+        
+        //ISO: 400   
+        if(expo_iso[0] == 50)
+        {
+            text[6*16+5] = ' ';
+            text[6*16+6] = '5';
+        }
+        else
+        {
+            text[6*16+5] = (expo_iso[0] / 100) + '0';
+            text[6*16+6] = '0';
+        }
     
-    count_frames[0] = count_frames[0] + 1;
-    //text[0] = (count_frames[0] / 10000) + '0';
-    //text[1] = ((count_frames[0] / 1000) % 10) + '0';
-    //text[2] = ((count_frames[0] / 100) % 10) + '0';
-    //text[3] = ((count_frames[0] / 10) % 10) + '0';
-    //text[4] = (count_frames[0] % 10) + '0';
-    //text[5] = 0;
-    //DRAW_TEXT(planeG, HIST_PITCH, HIST_PITCH, HIST_HEIGHT, HIST_WIDTH+4, 54, text, 255);
+        //Exp:xxxxus
+        text[7*16+4] = (expo_time[0] / 1000) + '0';
+        text[7*16+5] = ((expo_time[0] / 100) % 10) + '0';
+        text[7*16+6] = ((expo_time[0] / 10) % 10) + '0';
+        text[7*16+7] = (expo_time[0] % 10) + '0';
+    }
     
+    DRAW_TEXT_V(LCD, LCD_P, LCD_X, LCD_Y, 764, 360, text, GREY215);
+ 
+
 
 	uint32_t peak = 0;
 	for (uint32_t x = 0; x < NUM_BINS; x++) {
@@ -910,16 +911,6 @@ void calc_histogram(void)
 			int midD_stops = 0;
 			int bot_stops = 0;
 			int clipped = 0;
-
-            // DELAY
-            //int crude_delay = nvm_base[NVM_FPS];
-            //if(crude_delay >= 1 && crude_delay <= 256)
-            //{
-            //    int t=0;
-            //    if(*enc_frames < 4)
-            //        for(int i=0; i<100000 * crude_delay; i++)
-            //            t += *reelType;
-            //}
              
 			int i=0;
 			for(; i<42; i++) bot_stops += histogram_stats[i]; // bottom third
@@ -931,6 +922,10 @@ void calc_histogram(void)
 			top_stops = midC_stops + midD_stops + clipped; // 0 to 170, top third
 			twothirds = (bot_stops+midA_stops+midB_stops);
 
+            int maxexpo = 8250 * power;
+            if(*enc_frames == 0)
+                maxexpo = 33000; // in preview don't limit the gain.
+                
 			if((midD_stops + clipped + bot_stops)*16 < midA_stops + midB_stops + midC_stops) // low contrast negative, have a peak in the middle.
 			{
 				// no change
@@ -953,91 +948,42 @@ void calc_histogram(void)
 			{
 				// underexposed 
 				newexpo = (currexpo * 16794)>>14;  // increase slightly 1.025x
-				if(newexpo < 33000)// keep exposure less than 8ms at ISO 400
+				if(newexpo < maxexpo)// keep exposure less than 8ms at ISO 400
 					nextexpo = newexpo;
 			}
             
-            //int ev_stops = 0;
-            //if(nvm_base[NVM_EVBIAS] > 0)
-            //{
-            //   nextexpo *= (nvm_base[NVM_EVBIAS]+2);  
-            //   nextexpo /= 2;
-            //}
-            //if(nvm_base[NVM_EVBIAS] < 0)
-            //{
-            //   nextexpo *= 2;
-            //   nextexpo /= (2-nvm_base[NVM_EVBIAS]);  
-            //}
-			
-			//if(*expo_iso >= 200) currexpo++; //force a different 
-			
-			//if(nextexpo != currexpo) // normalized to ISO 100
 			{
 				int newiso = 50;
                 
                 if(*enc_frames > 0)
+                {
     				*expo_change = *frameno;
 				
-                if(*enc_frames >= 1)
-                {          
-				    while(nextexpo >= 8000 )  // keep the exposure time below 8ms to improve frame grab stability
+				    while(nextexpo >= 8000 && newiso < power*100 )
 				    {
 					    newiso *= 2;
 					    nextexpo /= 2;
 				    }
+                    while(nextexpo >= 8000)
+				    {
+					    nextexpo /= 2;
+				    }
                 }
-                else
+                else // preview
                 {
-                    while(nextexpo >= 2000 && newiso < 800)  // keep the exposure time below 2.5ms to improve frame grab stability
+                    // keep the exposure time below 2.5ms to improve frame grab stability
+                    while(nextexpo >= 2000 && newiso < 800)  
 				    {
 					    newiso *= 2;
 					    nextexpo /= 2;
 				    }
                 }
-			
             
 				int last_iso = *expo_iso;
 				int last_time = *expo_time;
                 
 				*expo_iso = newiso;
 				*expo_time = nextexpo;
-
-    #if 0 // print "iso:100 shut:6744us frame 13860"
-                if(newiso != last_iso || (nextexpo/400) != (last_time/400)) // print the change to the console, if more than 4% charge
-                {
-				    if(*reelType == 1)
-				    {
-					    asm volatile (
-					    ".word 0x3c0480e5\n" // lui $a0, 0x80f8 //expotime 0x80e56138
-					    ".word 0x24846134\n" // addiu $a0, $a0, 0x6138
-					    );
-				    } else if(*reelType == 2)
-				    {
-					    asm volatile (
-					    ".word 0x3c0480e5\n" // lui $a0, 0x80f8 //expotime 0x80e56228
-					    ".word 0x24846224\n" // addiu $a0, $a0, 0x6228
-					    );
-				    } else //if(*reelType == 3)
-				    {
-					    asm volatile (
-					    ".word 0x3c0480e5\n" // lui $a0, 0x80f8 //expotime 0x80e556b4
-					    ".word 0x248456b4\n" // addiu $a0, $a0, 0x56b4
-					    );
-				    }
-    
-				    asm volatile (
-				    ".word 0x8c850000\n" // lw $a1, 0x0($a0) 	//ISO
-				    ".word 0x8c860004\n" // lw $a2, 0x4($a0) 	//shut
-				    
-				    ".word 0x3c0485bf\n" // lui $a0, 0x85bf //frame encoded 0x85bf0014 
-				    ".word 0x8c870014\n" // lw $a3, 0x14($a0) 
-				    
-				    ".word 0x3c048034\n" // lui $a0, 0x8034 //iso:%d shut:%d  enc frame:%d\n
-				    ".word 0x0c020058\n" // jal 0x80160
-				    ".word 0x2484b0a0\n" // addiu $a0, $a0, -0x4f60
-				    );
-			    }
-    #endif
             }
 		}
 	}
