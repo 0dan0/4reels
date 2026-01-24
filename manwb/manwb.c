@@ -93,6 +93,13 @@ void select_wb(void)
         active_settings = (uint32_t *)0x80DDB69C;
         button = (uint32_t *)0xA0E8B578;
     }
+	if(*reelType == 4)
+    {
+		nvm_base = (int *)0x80E0ADA4; //exposure, sharpness, tint
+        active_settings = (uint32_t *)0x80DDC660;
+        button = (uint32_t *)0xA0E8b7d0;
+    }
+    
     
 	if(*frameno > 25 && *frameno < 3600*24*25) 
 	{

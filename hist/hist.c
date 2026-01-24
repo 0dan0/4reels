@@ -426,6 +426,13 @@ void calc_histogram(void)
         nvm_base = (int *)0x80E0AD0C; //exposure, sharpness, tint
         button = (uint32_t *)0xA0E8B578;
     }
+    if(*reelType == 4)
+    {
+        expo_iso = (int *)0x80e5590c; //sensor ISO
+        nvm_base = (int *)0x80E0ADA4; //exposure, sharpness, tint  
+        button = (uint32_t *)0xA0E8b7d0;
+    }
+    
 	int* expo_time = expo_iso + 1;
     
     if(button[3] > 0 && button[0] == BUTTON_OK) 
