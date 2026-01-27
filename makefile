@@ -1,5 +1,5 @@
 # List of subdirectories that contain their own Makefile
-SUBDIRS := manwb hist
+SUBDIRS := manwb hist res crop
 
 .PHONY: all $(SUBDIRS) clean
 
