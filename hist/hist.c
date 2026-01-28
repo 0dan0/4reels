@@ -262,7 +262,6 @@ void calc_histogram(void)
     uint32_t *window_res = (uint32_t *)0x85bf0030;
     uint8_t *LCD = (uint8_t *)0x81821180; // All types
     
-	uint8_t *imagebase = (uint8_t *)0xa2730b70; //start of LRV  //PREVIEW
   /*uint8_t *image = (uint8_t *)0x827c8970; //start of LRV
 	uint8_t *image = (uint8_t *)0x82860770; //start of LRV
 	uint8_t *image = (uint8_t *)0x828f8570; //start of LRV
@@ -340,11 +339,6 @@ void calc_histogram(void)
     }
 #endif
 
-    if(*enc_frames > 0 && *enc_frames < 99999)
-    {
-        imagebase = (uint8_t *)0xa37AB770; //start of LRV //0xAxxxxxxx - uncached
-    }
-    
     if(!(*expo_change == 0xffff0000 || *enc_frames > 0))
        return; // only show histogram in preview or once encoding 
     
@@ -413,7 +407,7 @@ void calc_histogram(void)
     volatile uint32_t* button = (uint32_t *)0xA0E8BFF8; // uncached
     int32_t* nvm_base = (uint32_t *)0x80E0B78C; //Type A - exposure, sharpness, tint
 	int* expo_iso = (int *)0x80e56134; //Type A - sensor ISO 
-       
+	uint8_t *imagebase = (uint8_t *)0xa2730b70; //start of LRV  //PREVIEW for Types A,B & C        
 	if(*reelType == 2)
     {
         expo_iso = (int *)0x80e56224; //sensor ISO
@@ -428,10 +422,19 @@ void calc_histogram(void)
     }
     if(*reelType == 4)
     {
+        imagebase = (uint8_t *)0xa2c7b9b0; //Type D
         expo_iso = (int *)0x80e5590c; //sensor ISO
         nvm_base = (int *)0x80E0ADA4; //exposure, sharpness, tint  
         button = (uint32_t *)0xA0E8b7d0;
     }
+            
+    if(*enc_frames > 0 && *enc_frames < 99999)
+    {
+        if(*reelType == 4)
+            imagebase = (uint8_t *)0xA3CF65B0; //start of LRV //0xAxxxxxxx - uncached
+        else
+            imagebase = (uint8_t *)0xa37AB770; //start of LRV //0xAxxxxxxx - uncached
+    } 
     
 	int* expo_time = expo_iso + 1;
     
