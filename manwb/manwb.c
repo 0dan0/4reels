@@ -74,23 +74,23 @@ void select_wb(void)
 	);
 	
 	volatile int* reelType = (int *)0x80340000;
-	volatile int* frameno = (int *)0x80f8214c; //frame counter
+	volatile int* frameno = (int *)0x80f823a4; //frame counter
 	volatile uint32_t *enc_frames = (uint32_t *) 0x85bf0014;
-	int32_t* nvm_base = (uint32_t *)0x80E0B78C; //Type A - exposure, sharpness, tint
-	uint32_t* active_settings = (uint32_t *)0x80DDC11C; // Settings for exposure, sharpness, tint
+	int32_t* nvm_base = (uint32_t *)0x80E0D600; //Type A - exposure, sharpness, tint
+	uint32_t* active_settings = (uint32_t *)0x80DDCF3C; // Settings for exposure, sharpness, tint
     volatile uint32_t* button = (uint32_t *)0xA0E8BFF8; // uncached
 	volatile int* button_read = (int *)0x85bf002c; // my flag to acknowledge the button press.
     
     if(*reelType == 2)
     {
-		nvm_base = (int *)0x80E0B87C; //exposure, sharpness, tint
-        active_settings = (uint32_t *)0x80DDC204;
+		nvm_base = (int *)0x80E0D6F0; //exposure, sharpness, tint
+        active_settings = (uint32_t *)0x80DDD024;
         button = (uint32_t *)0xA0E8C0E8;
     }
 	if(*reelType == 3)
     {
-		nvm_base = (int *)0x80E0AD0C; //exposure, sharpness, tint
-        active_settings = (uint32_t *)0x80DDB69C;
+		nvm_base = (int *)0x80E0CB80; //exposure, sharpness, tint
+        active_settings = (uint32_t *)0x80DDD4BC;
         button = (uint32_t *)0xA0E8B578;
     }
 	if(*reelType == 4)
